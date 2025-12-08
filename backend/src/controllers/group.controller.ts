@@ -2,6 +2,7 @@
 import { Request, Response } from "express";
 import { GroupModel } from "../models/group.model";
 import { supabaseAdmin } from "../config/supabaseClient";
+import { ExpenseModel } from "../models/expense.model";
 
 /**
  * Resolve member entries:
@@ -165,5 +166,39 @@ export const GroupController = {
       console.error("getGroup error:", err);
       return res.status(500).json({ error: err.message || err });
     }
+  },
+
+  async getGroupBalances(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+
+      // fetch all expenses for group
+      const expenses = await ExpenseModel.findByGroup(id);
+
+      const balances: any = {};
+
+      for (const exp of expenses) {
+        // 1️⃣ Add credits for payers
+        for (const p of exp.payers) {
+          balances[p.user_id] = (balances[p.user_id] || 0) + Number(p.paid_amount);
+        }
+
+        // 2️⃣ Add debits for splits
+        for (const s of exp.splits) {
+          balances[s.user_id] = (balances[s.user_id] || 0) - Number(s.owed_amount);
+        }
+      }
+
+      // round values
+      Object.keys(balances).forEach(k => {
+        balances[k] = Number(balances[k].toFixed(2));
+      });
+
+      return res.json({ balances });
+    } catch (err: any) {
+      console.error("getGroupBalances error:", err);
+      return res.status(500).json({ error: err.message || err });
+    }
   }
 };
+
