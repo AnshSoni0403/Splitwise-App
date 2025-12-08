@@ -5,6 +5,7 @@ import { AuthProvider, AuthContext } from "./src/context/AuthContext";
 import SignupScreen from "./src/screens/SignupScreen";
 import LoginScreen from "./src/screens/LoginScreen";
 import HomeScreen from "./src/screens/HomeScreen";
+import CreateGroupScreen from "./src/screens/CreateGroupScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -14,9 +15,12 @@ function RootNavigator() {
   if (loading) return null;
 
   return (
-    <Stack.Navigator>
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
       {token ? (
-        <Stack.Screen name="Home" component={HomeScreen} />
+        <>
+          <Stack.Screen name="Home" component={HomeScreen} />
+          <Stack.Screen name="CreateGroup" component={CreateGroupScreen} />
+        </>
       ) : (
         <>
           <Stack.Screen name="Signup" component={SignupScreen} />
@@ -26,6 +30,7 @@ function RootNavigator() {
     </Stack.Navigator>
   );
 }
+
 
 export default function App() {
   return (
