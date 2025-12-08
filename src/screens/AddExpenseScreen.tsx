@@ -41,40 +41,46 @@ export default function AddExpenseScreen({ route, navigation }: any) {
   };
 
   const submitExpense = async () => {
-    if (!selectedPayer) {
-      alert("Choose the person who paid!");
-      return;
-    }
+  if (!selectedPayer) {
+    alert("Choose the person who paid!");
+    return;
+  }
 
-    if (selectedParticipants.length === 0) {
-      alert("Select at least one participant!");
-      return;
-    }
+  if (selectedParticipants.length === 0) {
+    alert("Select at least one participant!");
+    return;
+  }
 
-    const payload = {
-      group_id: groupId,
-      description,
-      total_amount: Number(totalAmount),
-      created_by: selectedPayer,
-      payers: [{ user_id: selectedPayer, paid_amount: Number(totalAmount) }],
-      participants: selectedParticipants,
-      split_type: splitType,
-      split_values: null, // equal split for now
-    };
+  // FIX — Payer must also be a participant
+  const finalParticipants = selectedParticipants.includes(selectedPayer)
+    ? selectedParticipants
+    : [...selectedParticipants, selectedPayer];
 
-    try {
-      const res = await axios.post(
-        "http://192.168.0.194:4000/api/expenses",
-        payload
-      );
-
-      alert("Expense added successfully!");
-      navigation.goBack();
-    } catch (err: any) {
-      console.log("Error creating expense:", err.response?.data || err);
-      alert("Error adding expense");
-    }
+  const payload = {
+    group_id: groupId,
+    description,
+    total_amount: Number(totalAmount),
+    created_by: selectedPayer,
+    payers: [{ user_id: selectedPayer, paid_amount: Number(totalAmount) }],
+    participants: finalParticipants, // FIXED!!!
+    split_type: splitType,
+    split_values: null,
   };
+
+  try {
+    const res = await axios.post(
+      "http://192.168.0.194:4000/api/expenses",
+      payload
+    );
+
+    alert("Expense added successfully!");
+    navigation.goBack();
+  } catch (err: any) {
+    console.log("Error creating expense:", err.response?.data || err);
+    alert("Error adding expense");
+  }
+};
+
 
   return (
     <View style={{ flex: 1, padding: 20 }}>
