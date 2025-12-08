@@ -1,11 +1,8 @@
+// backend/src/controllers/expense.controller.ts
 import { Request, Response } from "express";
 import { ExpenseModel } from "../models/expense.model";
 
 export const ExpenseController = {
-
-  // ------------------------------------------------------------
-  // POST /api/expenses
-  // ------------------------------------------------------------
   async createExpense(req: Request, res: Response) {
     try {
       const {
@@ -14,23 +11,19 @@ export const ExpenseController = {
         total_amount,
         created_by,
         payers,          // [{ user_id, paid_amount }]
-        participants,    // [user_id,user_id...]
+        participants,    // [user_id,...]
         split_type,      // "equal" | "percentage" | "manual"
-        split_values     // percentage or manual values
+        split_values     // for percentage: [percent,...] matching participants order
+                         // for manual: [amount,...] matching participants order
       } = req.body;
 
-      // Validation
-      if (!group_id || !total_amount || !payers || !participants) {
-        return res.status(400).json({
-          error: "group_id, total_amount, payers, participants are required."
-        });
+      // basic validation
+      if (!group_id || total_amount == null || !Array.isArray(payers) || !Array.isArray(participants)) {
+        return res.status(400).json({ error: "group_id, total_amount, payers, participants are required." });
       }
+      if (!created_by) return res.status(400).json({ error: "created_by is required" });
 
-      if (!created_by) {
-        return res.status(400).json({ error: "created_by is required" });
-      }
-
-      // Create main expense
+      // create main expense row
       const expense = await ExpenseModel.createExpense({
         group_id,
         description,
@@ -38,79 +31,112 @@ export const ExpenseController = {
         created_by
       });
 
-      // Insert payers
+      // insert payer rows
       await ExpenseModel.addPayers(expense.id, payers);
 
-      // ------------------------------------------------------------
-      // SPLIT LOGIC
-      // ------------------------------------------------------------
-      let finalSplits: any[] = [];
+      // Prepare sets and arrays
+      const payerIds = new Set(payers.map((p: any) => p.user_id));
+      const partIds: string[] = participants.slice(); // copy
 
-      if (split_type === "equal") {
-        const share = Number(total_amount) / participants.length;
+      // Identify participants who must PAY (exclude payers)
+      const payersInParticipants = partIds.filter(pid => payerIds.has(pid));
+      const oweParticipants = partIds.filter(pid => !payerIds.has(pid)); // these will be assigned owed_amount
 
-        finalSplits = participants.map((user_id: string) => ({
-          user_id,
-          owed_amount: Number(share.toFixed(2))
-        }));
+      // Handle case: if no one owes (everyone is a payer or oweParticipants length = 0)
+      if (oweParticipants.length === 0) {
+        // nobody owes (all participants are payers) -> create zero splits or skip
+        // We'll insert zero owed_amount rows for participants (optional)
+        const zeroSplits = partIds.map(uid => ({ user_id: uid, owed_amount: 0 }));
+        await ExpenseModel.addSplits(expense.id, zeroSplits);
+        return res.status(201).json({ message: "Expense created (no owing participants)", expense });
       }
 
-      else if (split_type === "percentage") {
-        if (!split_values || split_values.length !== participants.length) {
-          return res.status(400).json({
-            error: "percentage split_values must match participants count"
-          });
+      // Compute finalSplits according to split_type, BUT only for oweParticipants.
+      let finalSplits: { user_id: string; owed_amount: number }[] = [];
+
+      if (split_type === "equal" || !split_type) {
+        // split equally among oweParticipants (exclude payer(s))
+        const each = Number(total_amount) / oweParticipants.length;
+        finalSplits = oweParticipants.map(uid => ({ user_id: uid, owed_amount: Number(each.toFixed(2)) }));
+      } else if (split_type === "percentage") {
+        // split_values expected to be an array of percentages corresponding to participants[]
+        if (!Array.isArray(split_values) || split_values.length !== partIds.length) {
+          return res.status(400).json({ error: "percentage split_values must match participants length" });
         }
 
-        finalSplits = participants.map((user_id: string, index: number) => ({
-          user_id,
-          owed_amount: Number(((split_values[index] / 100) * total_amount).toFixed(2))
-        }));
-      }
+        // Build map participant -> percent
+        const percentMap = new Map<string, number>();
+        partIds.forEach((pid, idx) => percentMap.set(pid, Number(split_values[idx] || 0)));
 
-      else if (split_type === "manual") {
-        if (!split_values || split_values.length !== participants.length) {
-          return res.status(400).json({
-            error: "manual split_values must match participants count"
-          });
+        // Remove payer percents (set to 0) and compute remaining total percent
+        let remainingPercent = 0;
+        for (const uid of oweParticipants) {
+          remainingPercent += (percentMap.get(uid) || 0);
+        }
+        // If remainingPercent is 0 (no percent assigned to non-payers), distribute equally
+        if (remainingPercent === 0) {
+          const each = Number(total_amount) / oweParticipants.length;
+          finalSplits = oweParticipants.map(uid => ({ user_id: uid, owed_amount: Number(each.toFixed(2)) }));
+        } else {
+          // Rescale their percents to sum to 100% of the owed portion
+          for (const uid of oweParticipants) {
+            const p = Number(percentMap.get(uid) || 0);
+            const scaledPercent = (p / remainingPercent) * 100; // proportional scaling
+            const owed = Number(((scaledPercent / 100) * Number(total_amount)).toFixed(2));
+            finalSplits.push({ user_id: uid, owed_amount: owed });
+          }
+        }
+      } else if (split_type === "manual") {
+        // split_values expected to be exact amounts array corresponding to participants[]
+        if (!Array.isArray(split_values) || split_values.length !== partIds.length) {
+          return res.status(400).json({ error: "manual split_values must match participants length" });
         }
 
-        const sum = split_values.reduce((a: number, b: number) => a + b, 0);
-        if (sum !== Number(total_amount)) {
-          return res.status(400).json({
-            error: "manual split_values must sum to total_amount"
-          });
+        // Build map participant -> manual amount
+        const manualMap = new Map<string, number>();
+        partIds.forEach((pid, idx) => manualMap.set(pid, Number(split_values[idx] || 0)));
+
+        // Sum manual amounts for oweParticipants
+        let manualSum = 0;
+        for (const uid of oweParticipants) manualSum += (manualMap.get(uid) || 0);
+
+        if (manualSum === 0) {
+          // No manual amounts for oweParticipants -> split equally
+          const each = Number(total_amount) / oweParticipants.length;
+          finalSplits = oweParticipants.map(uid => ({ user_id: uid, owed_amount: Number(each.toFixed(2)) }));
+        } else {
+          // If manualSum differs from total_amount (because original manual included payer shares),
+          // we rescale the manual amounts for oweParticipants proportionally to sum to total_amount.
+          // This ensures owed_amounts for non-payers add up to total_amount.
+          for (const uid of oweParticipants) {
+            const val = manualMap.get(uid) || 0;
+            const owed = Number(((val / manualSum) * Number(total_amount)).toFixed(2));
+            finalSplits.push({ user_id: uid, owed_amount: owed });
+          }
         }
-
-        finalSplits = participants.map((user_id: string, index: number) => ({
-          user_id,
-          owed_amount: Number(split_values[index])
-        }));
+      } else {
+        return res.status(400).json({ error: "Invalid split_type (equal|percentage|manual)" });
       }
 
-      else {
-        return res.status(400).json({
-          error: "Invalid split_type. Use equal | percentage | manual"
-        });
+      // Last step: small rounding fix — ensure sum(owed_amount) == total_amount (adjust by tiny diff)
+      const sumOwed = finalSplits.reduce((s, r) => s + Number(r.owed_amount), 0);
+      const diff = Number(Number(total_amount) - sumOwed).toFixed(2);
+      if (Number(diff) !== 0) {
+        // adjust the first non-payer by the difference
+        finalSplits[0].owed_amount = Number((Number(finalSplits[0].owed_amount) + Number(diff)).toFixed(2));
       }
 
-      // Insert splits
+      // insert splits
       await ExpenseModel.addSplits(expense.id, finalSplits);
 
-      return res.status(201).json({
-        message: "Expense created successfully",
-        expense
-      });
-
+      return res.status(201).json({ message: "Expense created", expense, splits: finalSplits });
     } catch (err: any) {
       console.error("createExpense error:", err);
       return res.status(500).json({ error: err.message || err });
     }
   },
 
-  // ------------------------------------------------------------
-  // GET /api/expenses/group/:groupId
-  // ------------------------------------------------------------
+  // ... keep getExpensesForGroup unchanged ...
   async getExpensesForGroup(req: Request, res: Response) {
     try {
       const { groupId } = req.params;
@@ -121,5 +147,4 @@ export const ExpenseController = {
       return res.status(500).json({ error: err.message || err });
     }
   }
-
 };
