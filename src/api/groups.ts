@@ -1,12 +1,13 @@
 import axios from "axios";
 
+
 const API = axios.create({
-  baseURL: "http://192.168.0.194:4000/api/groups"   // your machine IP
+  baseURL: "http://192.168.0.194:4000/api/groups"
 });
 
-// GET all groups for now (temporary)
-// Later we will filter by user_id
-export const getAllGroups = () => API.get("/all"); 
+export const getUserGroups = (userId: string) =>
+  API.get(`/user/${userId}`);
+
 
 // CREATE group
 export const createGroupApi = (data: {

@@ -1,7 +1,8 @@
 import React, { useContext, useEffect, useState } from "react";
 import { View, Text, TouchableOpacity, FlatList, StyleSheet } from "react-native";
 import { AuthContext } from "../context/AuthContext";
-import { getAllGroups } from "../api/groups";
+import { getUserGroups } from "../api/groups";
+
 import { Ionicons } from "@expo/vector-icons";
 
 export default function HomeScreen({ navigation }: any) {
@@ -9,13 +10,14 @@ export default function HomeScreen({ navigation }: any) {
   const [groups, setGroups] = useState<any[]>([]);
 
   const loadGroups = async () => {
-    try {
-      const res = await getAllGroups();
-      setGroups(res.data.groups);
-    } catch (err) {
-      console.log("Error loading groups", err);
-    }
-  };
+  try {
+    const res = await getUserGroups(user.id);
+    setGroups(res.data.groups);
+  } catch (err) {
+    console.log("Error loading groups", err);
+  }
+};
+
 
   useEffect(() => {
     loadGroups();
