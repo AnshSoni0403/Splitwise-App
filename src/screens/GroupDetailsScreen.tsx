@@ -1,5 +1,5 @@
 // mobile/src/screens/GroupDetailsScreen.tsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useContext } from "react";
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import axios from "axios";
 import { useIsFocused } from "@react-navigation/native";
+import { AuthContext } from "../context/AuthContext";
 
 const API_BASE = "http://192.168.0.194:4000/api"; // <-- replace with your IP if needed
 
@@ -33,6 +34,9 @@ export default function GroupDetailsScreen({ route, navigation }: any) {
   const [expenses, setExpenses] = useState<any[]>([]);
   const [balances, setBalances] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
+  const [settlements, setSettlements] = useState<any[]>([]);
+
+  const { user } = useContext(AuthContext);
 
   const loadGroup = async () => {
     try {
@@ -62,6 +66,41 @@ export default function GroupDetailsScreen({ route, navigation }: any) {
     }
   };
 
+  // compute pairwise settlements from balances map
+  const computeSettlements = (balancesMap: Record<string, number>) => {
+    const creditors: { user_id: string; amount: number }[] = [];
+    const debtors: { user_id: string; amount: number }[] = [];
+
+    Object.keys(balancesMap).forEach((uid) => {
+      const v = Number(balancesMap[uid] || 0);
+      if (v > 0.005) creditors.push({ user_id: uid, amount: v });
+      else if (v < -0.005) debtors.push({ user_id: uid, amount: -v }); // store positive owed amount
+    });
+
+    // sort creditors desc, debtors desc
+    creditors.sort((a, b) => b.amount - a.amount);
+    debtors.sort((a, b) => b.amount - a.amount);
+
+    const res: { from: string; to: string; amount: number }[] = [];
+
+    let i = 0;
+    let j = 0;
+    while (i < debtors.length && j < creditors.length) {
+      const owe = debtors[i];
+      const recv = creditors[j];
+      const settle = Math.min(owe.amount, recv.amount);
+      res.push({ from: owe.user_id, to: recv.user_id, amount: Number(settle.toFixed(2)) });
+
+      owe.amount = Number((owe.amount - settle).toFixed(2));
+      recv.amount = Number((recv.amount - settle).toFixed(2));
+
+      if (owe.amount <= 0.005) i++;
+      if (recv.amount <= 0.005) j++;
+    }
+
+    return res;
+  };
+
   const loadAll = async () => {
     setLoading(true);
     await Promise.all([loadGroup(), loadExpenses(), loadBalances()]);
@@ -72,6 +111,11 @@ export default function GroupDetailsScreen({ route, navigation }: any) {
     if (isFocused) loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isFocused]);
+
+  // recompute settlements whenever balances change
+  useEffect(() => {
+    setSettlements(computeSettlements(balances || {}));
+  }, [balances]);
 
   if (loading || !group) {
     return (
@@ -133,6 +177,36 @@ export default function GroupDetailsScreen({ route, navigation }: any) {
                   <View key={uid} style={styles.balanceRow}>
                     <Text style={styles.balanceName}>{name}</Text>
                     <Text style={[styles.balanceAmount, { color: bal >= 0 ? "green" : "red" }]}>{balText}</Text>
+                  </View>
+                );
+              })
+            )}
+          </View>
+
+          {/* Settlements for current user */}
+          <Text style={[styles.section, { marginTop: 22 }]}>Settlements (for you)</Text>
+          <View style={styles.card}>
+            {(!settlements || settlements.length === 0) ? (
+              <Text style={{ color: COLORS.muted }}>No settlements required</Text>
+            ) : (
+              // show only transactions that involve current user
+              settlements.filter(s => s.from === user?.id || s.to === user?.id).map((s, idx) => {
+                const fromMember = findMemberByUserId(s.from) || {};
+                const toMember = findMemberByUserId(s.to) || {};
+                const fromName = fromMember.users?.name || s.from.slice(0, 6);
+                const toName = toMember.users?.name || s.to.slice(0, 6);
+                if (s.from === user?.id) {
+                  return (
+                    <View key={idx} style={styles.balanceRow}>
+                      <Text style={styles.balanceName}>You → {toName}</Text>
+                      <Text style={[styles.balanceAmount, { color: '#b91c1c' }]}>-₹{s.amount.toFixed(2)}</Text>
+                    </View>
+                  );
+                }
+                return (
+                  <View key={idx} style={styles.balanceRow}>
+                    <Text style={styles.balanceName}>{fromName} → You</Text>
+                    <Text style={[styles.balanceAmount, { color: '#065f46' }]}>+₹{s.amount.toFixed(2)}</Text>
                   </View>
                 );
               })

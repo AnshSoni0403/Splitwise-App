@@ -6,7 +6,7 @@ import authRoutes from "./routes/auth.routes";
 import groupRoutes from "./routes/group.routes";
 import userRoutes from "./routes/user.routes";
 import expenseRoutes from "./routes/expense.routes";
-
+import settlementRoutes from "./routes/settlement.routes";
 dotenv.config();
 
 const app = express();
@@ -21,6 +21,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/groups", groupRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/expenses", expenseRoutes);
+app.use("/api/settlements", settlementRoutes);
 
 
 app.listen(PORT, () => {
