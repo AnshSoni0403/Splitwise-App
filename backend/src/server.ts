@@ -4,6 +4,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import authRoutes from "./routes/auth.routes";
 import groupRoutes from "./routes/group.routes";
+import userRoutes from "./routes/user.routes";
 
 dotenv.config();
 
@@ -17,6 +18,7 @@ app.get('/', (_req, res) => res.send('Expense Splitter backend running'));
 
 app.use("/api/auth", authRoutes);
 app.use("/api/groups", groupRoutes);
+app.use("/api/users", userRoutes);
 
 
 app.listen(PORT, () => {
