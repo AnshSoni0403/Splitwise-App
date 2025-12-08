@@ -8,12 +8,24 @@ import {
   FlatList,
   Alert,
 } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { AuthContext } from "../context/AuthContext";
 import axios from "axios";
 import { createGroupApi } from "../api/groups";
 
-const LOOKUP_URL = "http://192.168.0.194:4000/api/users/lookup"; // your IP
+const LOOKUP_URL = "http://192.168.0.194:4000/api/users/lookup"; // your IP (kept unchanged)
+
+const COLORS = {
+  headerStart: '#f0fdf4',
+  headerEnd: '#dcfce7',
+  card: '#ffffff',
+  primary: '#059669',
+  primaryDark: '#047857',
+  muted: '#6b7280',
+  text: '#064e3b'
+};
 
 export default function CreateGroupScreen({ navigation }: any) {
   const { user } = useContext(AuthContext);
@@ -152,93 +164,99 @@ export default function CreateGroupScreen({ navigation }: any) {
   // UI
   // --------------------------
   return (
-    <View style={{ padding: 20, flex: 1 }}>
-      <Text style={styles.title}>Create Group</Text>
+    <LinearGradient colors={[COLORS.headerStart, COLORS.headerEnd]} style={{ flex: 1 }}>
+      <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
+        <View style={styles.container}>
+          <Text style={styles.title}>Create Group</Text>
 
-      {/* Group Name Input */}
-      <TextInput
-        style={styles.input}
-        placeholder="Group Name"
-        value={groupName}
-        onChangeText={setGroupName}
-      />
+          {/* Group Name Input */}
+          <TextInput
+            style={styles.input}
+            placeholder="Group Name"
+            value={groupName}
+            onChangeText={setGroupName}
+            placeholderTextColor={COLORS.muted}
+          />
 
-      {/* Member Input */}
-      <Text style={styles.label}>Add members by email or username</Text>
+          {/* Member Input */}
+          <Text style={styles.label}>Add members by email or username</Text>
 
-      <View style={styles.lookupRow}>
-        <TextInput
-          style={[styles.input, { flex: 1 }]}
-          placeholder="Enter email or username"
-          value={inputValue}
-          onChangeText={setInputValue}
-        />
+          <View style={styles.lookupRow}>
+            <TextInput
+              style={[styles.input, { flex: 1 }]}
+              placeholder="Enter email or username"
+              value={inputValue}
+              onChangeText={setInputValue}
+              placeholderTextColor={COLORS.muted}
+            />
 
-        <TouchableOpacity style={styles.lookupBtn} onPress={lookupUser}>
-          <Text style={{ color: "white" }}>{loadingLookup ? "..." : "Find"}</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Suggestion block */}
-      {suggestion && (
-        <View style={styles.suggestionBox}>
-          <Text style={{ fontWeight: "700" }}>
-            {suggestion.name || suggestion.username || suggestion.email}
-          </Text>
-          <Text style={{ color: "#666" }}>
-            {suggestion.email || suggestion.identifier}
-          </Text>
-
-          <View style={{ flexDirection: "row", marginTop: 10 }}>
-            <TouchableOpacity style={styles.addBtn} onPress={addSuggestedUser}>
-              <Text style={{ color: "white" }}>Add</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.cancelBtn}
-              onPress={() => setSuggestion(null)}
-            >
-              <Text>Cancel</Text>
+            <TouchableOpacity style={[styles.lookupBtn, { backgroundColor: COLORS.primary }]} onPress={lookupUser}>
+              <Text style={{ color: 'white' }}>{loadingLookup ? '...' : 'Find'}</Text>
             </TouchableOpacity>
           </View>
-        </View>
-      )}
 
-      {/* Members List */}
-      <Text style={styles.label}>Members Added</Text>
-      <FlatList
-        data={members}
-        keyExtractor={(_, i) => String(i)}
-        renderItem={({ item, index }) => (
-          <View style={styles.memberRow}>
-            <View>
-              <Text style={{ fontWeight: "600" }}>{item.name}</Text>
-              <Text style={{ color: "#666" }}>
-                {item.email || item.identifier}
+          {/* Suggestion block */}
+          {suggestion && (
+            <View style={styles.suggestionBox}>
+              <Text style={{ fontWeight: '700', color: COLORS.text }}>
+                {suggestion.name || suggestion.username || suggestion.email}
               </Text>
+              <Text style={{ color: COLORS.muted }}>
+                {suggestion.email || suggestion.identifier}
+              </Text>
+
+              <View style={{ flexDirection: 'row', marginTop: 10 }}>
+                <TouchableOpacity style={styles.addBtn} onPress={addSuggestedUser}>
+                  <Text style={{ color: 'white' }}>Add</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.cancelBtn}
+                  onPress={() => setSuggestion(null)}
+                >
+                  <Text>Cancel</Text>
+                </TouchableOpacity>
+              </View>
             </View>
+          )}
 
-            <TouchableOpacity
-              style={styles.removeBtn}
-              onPress={() => removeMember(index)}
-            >
-              <Text style={{ color: "white" }}>Remove</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      />
+          {/* Members List */}
+          <Text style={styles.label}>Members Added</Text>
+          <FlatList
+            data={members}
+            keyExtractor={(_, i) => String(i)}
+            renderItem={({ item, index }) => (
+              <View style={styles.memberRow}>
+                <View>
+                  <Text style={{ fontWeight: '600', color: COLORS.text }}>{item.name}</Text>
+                  <Text style={{ color: COLORS.muted }}>
+                    {item.email || item.identifier}
+                  </Text>
+                </View>
 
-      {/* Submit */}
-      <TouchableOpacity
-        style={styles.createBtn}
-        onPress={createGroup}
-        disabled={creating}
-      >
-        <Text style={{ color: "white", fontSize: 16, fontWeight: "700" }}>
-          {creating ? "Creating..." : "Create Group"}
-        </Text>
-      </TouchableOpacity>
-    </View>
+                <TouchableOpacity
+                  style={styles.removeBtn}
+                  onPress={() => removeMember(index)}
+                >
+                  <Text style={{ color: 'white' }}>Remove</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          />
+
+          {/* Submit */}
+          <TouchableOpacity
+            style={[styles.createBtn, { backgroundColor: COLORS.primaryDark }]}
+            onPress={createGroup}
+            disabled={creating}
+          >
+            <Text style={{ color: 'white', fontSize: 16, fontWeight: '700' }}>
+              {creating ? 'Creating...' : 'Create Group'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
 
@@ -246,57 +264,60 @@ export default function CreateGroupScreen({ navigation }: any) {
 // STYLES
 // --------------------------
 const styles = StyleSheet.create({
-  title: { fontSize: 22, fontWeight: "700", marginBottom: 20 },
-  label: { marginTop: 15, fontWeight: "600", fontSize: 14 },
+  container: { flex: 1, padding: 20 },
+  title: { fontSize: 22, fontWeight: '700', marginBottom: 12, color: COLORS.text },
+  label: { marginTop: 12, fontWeight: '600', fontSize: 14, color: COLORS.muted },
   input: {
     borderWidth: 1,
-    borderColor: "#ccc",
+    borderColor: '#e6eeed',
     padding: 12,
-    borderRadius: 8,
-    marginTop: 10,
+    borderRadius: 10,
+    marginTop: 8,
+    backgroundColor: COLORS.card,
   },
-  lookupRow: { flexDirection: "row", alignItems: "center", marginTop: 10 },
+  lookupRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10 },
   lookupBtn: {
-    backgroundColor: "#007bff",
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderRadius: 8,
     marginLeft: 8,
   },
   suggestionBox: {
-    backgroundColor: "#f3f3f3",
+    backgroundColor: '#f8faf8',
     padding: 12,
     borderRadius: 8,
     marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#eef6ee'
   },
   addBtn: {
-    backgroundColor: "#2e7d32",
+    backgroundColor: COLORS.primary,
     padding: 10,
     paddingHorizontal: 20,
     borderRadius: 8,
   },
   cancelBtn: { padding: 10, marginLeft: 12 },
   memberRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     borderWidth: 1,
-    borderColor: "#eee",
+    borderColor: '#eee',
     borderRadius: 8,
     padding: 12,
     marginTop: 10,
+    backgroundColor: COLORS.card,
   },
   removeBtn: {
-    backgroundColor: "#c62828",
+    backgroundColor: '#c62828',
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: 8,
   },
   createBtn: {
-    backgroundColor: "black",
     padding: 15,
     borderRadius: 10,
     marginTop: 20,
-    alignItems: "center",
+    alignItems: 'center',
   },
 });
