@@ -7,6 +7,8 @@ import {
   Alert,
   StyleSheet,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 import axios from "axios";
 
 export default function AddMemberScreen({ route, navigation }: any) {
@@ -39,22 +41,27 @@ export default function AddMemberScreen({ route, navigation }: any) {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Add Member</Text>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#f8faf9' }}>
+      <LinearGradient colors={["#f0fdf4", "#dcfce7"]} style={{ padding: 12, alignItems: 'center' }}>
+        <Text style={{ fontSize: 18, fontWeight: '700', color: '#064e3b' }}>Add Member</Text>
+      </LinearGradient>
+      <View style={styles.container}>
+        <Text style={styles.title}>Invite someone</Text>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Enter email or username"
-        value={identifier}
-        onChangeText={setIdentifier}
-      />
+        <TextInput
+          style={styles.input}
+          placeholder="Enter email or username"
+          value={identifier}
+          onChangeText={setIdentifier}
+        />
 
-      <TouchableOpacity style={styles.button} onPress={addMember} disabled={loading}>
-        <Text style={styles.buttonText}>
-          {loading ? "Adding..." : "Add Member"}
-        </Text>
-      </TouchableOpacity>
-    </View>
+        <TouchableOpacity style={styles.button} onPress={addMember} disabled={loading}>
+          <Text style={styles.buttonText}>
+            {loading ? "Adding..." : "Add Member"}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
   );
 }
 
