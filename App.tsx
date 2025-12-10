@@ -9,6 +9,7 @@ import CreateGroupScreen from "./src/screens/CreateGroupScreen";
 import GroupDetailsScreen from "./src/screens/GroupDetailsScreen";
 import AddMemberScreen from "./src/screens/AddMemberScreen";
 import AddExpenseScreen from "./src/screens/AddExpenseScreen";
+import SettleUpScreen from "./src/screens/SettleUpScreen";
 
 
 
@@ -28,6 +29,7 @@ function RootNavigator() {
           <Stack.Screen name="GroupDetails" component={GroupDetailsScreen} />
           <Stack.Screen name="AddMember" component={AddMemberScreen} />
           <Stack.Screen name="AddExpense" component={AddExpenseScreen} />
+          <Stack.Screen name="SettleUp" component={SettleUpScreen} />
         </>
       ) : (
         <>
