@@ -10,7 +10,8 @@ export async function computeGroupBalances(groupId: string) {
   // STEP 1 — Apply expenses
   for (const exp of expenses) {
     for (const p of exp.payers || []) {
-      balance[p.user_id] = (balance[p.user_id] || 0) + Number(p.paid_amount);
+        // Payers get money BACK (positive balance)
+        balance[p.user_id] = (balance[p.user_id] || 0) + Number(p.paid_amount);
     }
 
     for (const s of exp.splits || []) {
@@ -20,8 +21,10 @@ export async function computeGroupBalances(groupId: string) {
 
   // STEP 2 — Apply settlements
   for (const st of settlements) {
-    balance[st.from_user] = (balance[st.from_user] || 0) - Number(st.amount);
-    balance[st.to_user] = (balance[st.to_user] || 0) + Number(st.amount);
+      // from_user is PAYING (negative balance)
+      balance[st.from_user] = (balance[st.from_user] || 0) - Number(st.amount);
+      // to_user is RECEIVING (positive balance)
+      balance[st.to_user] = (balance[st.to_user] || 0) + Number(st.amount);
   }
 
   return balance;

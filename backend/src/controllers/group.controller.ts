@@ -3,6 +3,8 @@ import { Request, Response } from "express";
 import { GroupModel } from "../models/group.model";
 import { supabaseAdmin } from "../config/supabaseClient";
 import { ExpenseModel } from "../models/expense.model";
+import { SettlementModel } from "../models/settlement.model";
+import { computeGroupBalances } from "../utils/balances";
 
 /**
  * Resolve member entries:
@@ -172,24 +174,10 @@ export const GroupController = {
     try {
       const { id } = req.params;
 
-      // fetch all expenses for group
-      const expenses = await ExpenseModel.findByGroup(id);
+      // Use the centralized computeGroupBalances utility that includes both expenses AND settlements
+      const balances = await computeGroupBalances(id);
 
-      const balances: any = {};
-
-      for (const exp of expenses) {
-        // 1️⃣ Add credits for payers
-        for (const p of exp.payers) {
-          balances[p.user_id] = (balances[p.user_id] || 0) + Number(p.paid_amount);
-        }
-
-        // 2️⃣ Add debits for splits
-        for (const s of exp.splits) {
-          balances[s.user_id] = (balances[s.user_id] || 0) - Number(s.owed_amount);
-        }
-      }
-
-      // round values
+      // Round values to 2 decimals
       Object.keys(balances).forEach(k => {
         balances[k] = Number(balances[k].toFixed(2));
       });
